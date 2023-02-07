@@ -19,7 +19,7 @@ cetd:
 	@echo "Run \"$(GOBIN)/cetd\" to launch cetd."
 
 all:
-	$(GORUN) build/ci.go instal
+	$(GORUN) build/ci.go install
 
 android:
 	$(GORUN) build/ci.go aar --local
