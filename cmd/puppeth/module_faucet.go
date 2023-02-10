@@ -30,19 +30,10 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 )
 
-// faucetDockerfile is the Dockerfile required to build a faucet container to
+// faucetDockerfile is the Dockerfile required to build an faucet container to
 // grant crypto tokens based on GitHub authentications.
 var faucetDockerfile = `
-FROM alpine:latest
-RUN mkdir /go
-ENV GOPATH /go
-RUN \
-  apk add --update git go make gcc musl-dev ca-certificates linux-headers                             && \
-	mkdir -p $GOPATH/src/github.com/ethereum                                                            && \
-	(cd $GOPATH/src/github.com/ethereum && git clone --depth=1 https://github.com/coinex-smart-chain/csc) && \
-  go build -v github.com/coinex-smart-chain/csc/cmd/faucet                                              && \
-  apk del git go make gcc musl-dev linux-headers                                                      && \
-  rm -rf $GOPATH && rm -rf /var/cache/apk/*
+FROM ethereum/client-go:alltools:v1.8.0
 
 ADD genesis.json /genesis.json
 ADD account.json /account.json
@@ -65,10 +56,8 @@ services:
   faucet:
     build: .
     image: {{.Network}}/faucet
-    container_name: {{.Network}}_faucet_1
     ports:
-      - "{{.EthPort}}:{{.EthPort}}"
-      - "{{.EthPort}}:{{.EthPort}}/udp"{{if not .VHost}}
+      - "{{.EthPort}}:{{.EthPort}}"{{if not .VHost}}
       - "{{.ApiPort}}:8080"{{end}}
     volumes:
       - {{.Datadir}}:/root/.faucet
@@ -144,12 +133,12 @@ func deployFaucet(client *sshClient, network string, bootnodes []string, config 
 
 	// Build and deploy the faucet service
 	if nocache {
-		return nil, client.Stream(fmt.Sprintf("cd %s && docker-compose -p %s build --pull --no-cache && docker-compose -p %s up -d --force-recreate --timeout 60", workdir, network, network))
+		return nil, client.Stream(fmt.Sprintf("cd %s && docker-compose -p %s build --pull --no-cache && docker-compose -p %s up -d --force-recreate", workdir, network, network))
 	}
-	return nil, client.Stream(fmt.Sprintf("cd %s && docker-compose -p %s up -d --build --force-recreate --timeout 60", workdir, network))
+	return nil, client.Stream(fmt.Sprintf("cd %s && docker-compose -p %s up -d --build --force-recreate", workdir, network))
 }
 
-// faucetInfos is returned from a faucet status check to allow reporting various
+// faucetInfos is returned from an faucet status check to allow reporting various
 // configuration parameters.
 type faucetInfos struct {
 	node          *nodeInfos
@@ -192,7 +181,7 @@ func (info *faucetInfos) Report() map[string]string {
 	return report
 }
 
-// checkFaucet does a health-check against a faucet server to verify whether
+// checkFaucet does a health-check against an faucet server to verify whether
 // it's running, and if yes, gathering a collection of useful infos about it.
 func checkFaucet(client *sshClient, network string) (*faucetInfos, error) {
 	// Inspect a possible faucet container on the host
@@ -222,7 +211,7 @@ func checkFaucet(client *sshClient, network string) (*faucetInfos, error) {
 	minutes, _ := strconv.Atoi(infos.envvars["FAUCET_MINUTES"])
 	tiers, _ := strconv.Atoi(infos.envvars["FAUCET_TIERS"])
 
-	// Retrieve the funding account information
+	// Retrieve the funding account informations
 	var out []byte
 	keyJSON, keyPass := "", ""
 	if out, err = client.Run(fmt.Sprintf("docker exec %s_faucet_1 cat /account.json", network)); err == nil {
